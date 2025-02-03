@@ -1,0 +1,14 @@
+## SOCKS Proxy
+SocksPort 9050
+
+## DNS traffic routing on tor
+DNSPort 53
+AutomapHostsOnResolve 1
+VirtualAddrNetworkIPv4 10.192.0.0/10
+
+## routing all traffic
+TransPort 9040
+
+## control port 
+ControlPort 9051
+CookieAuthentication 1
