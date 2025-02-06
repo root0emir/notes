@@ -25,3 +25,68 @@ COMMIT
 
 #!/bin/sh
 /sbin/iptables-restore < /etc/network/iptables.rules
+
+--------------------
+/usr/local/bin/macsec-setup.sh  not: ağ seviyesinde kernel bazlı güvenlik ağ trafiğini donanım seviyesinde şifreler ve MITM ve benzeri saldırılarla çözülmesini engeller.
+
+#!/bin/bash
+ip link add link eth0 macsec0 type macsec encrypt on
+ip macsec add macsec0 rx sci 12:34:56:78:9A:BC pn 1 on key 01 00112233445566778899AABBCCDDEEFF
+ip link set macsec0 up
+
+
+/etc/systemd/system/macsec.service
+
+
+[Unit]
+Description=MACsec Secure Network Setup
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/macsec-setup.sh
+RemainAfterExit=true
+
+[Install]
+WantedBy=multi-user.target
+
+--------------------------------
+
+
+/etc/sysctl.d/99-network-security.conf  
+
+
+
+# IP Spoofing Koruması
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.default.rp_filter=1
+
+# SYN Flood Saldırılarını Önleme
+net.ipv4.tcp_syncookies=1
+
+# ICMP Saldırılarından Korunma
+net.ipv4.icmp_echo_ignore_broadcasts=1
+net.ipv4.icmp_ignore_bogus_error_responses=1
+
+# IPv6 Gizliliği ve Güvenliği
+net.ipv6.conf.all.use_tempaddr=2
+net.ipv6.conf.default.use_tempaddr=2
+net.ipv6.conf.all.accept_ra=0
+net.ipv6.conf.default.accept_ra=0
+
+
+
+---------------------
+/etc/NetworkManager/conf.d/00-macrandomize.conf
+
+[device]
+wifi.scan-rand-mac-address=yes
+
+[connection]
+wifi.cloned-mac-address=random
+ethernet.cloned-mac-address=random
+
+
+
+
+
