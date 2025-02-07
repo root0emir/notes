@@ -97,11 +97,6 @@ echo '@reboot root while true; do ping -c 1 127.0.0.1 >/dev/null 2>&1; sleep $((
 # DNS Flooding (Gerçek trafiği gizle)
 echo '@reboot root while true; do host $(head -c 10 /dev/urandom | md5sum | cut -d " " -f1).com >/dev/null 2>&1; sleep $((RANDOM % 5)); done &' >> /etc/crontab
 
-# OpenVPN'i Tor üzerinden çalıştır (Tor over VPN)
-iptables -t nat -A OUTPUT -p tcp --syn -j REDIRECT --to-ports 9050
-iptables -A OUTPUT -m owner --uid-owner openvpn -j ACCEPT
-iptables -A OUTPUT -j REJECT
-
 -------------------------
 
 config/hooks/005-firejail-sandbox.chroot
@@ -110,9 +105,13 @@ config/hooks/005-firejail-sandbox.chroot
 
 apt install -y firejail
 
-# Firefox'u sandbox içinde çalıştır
+
 echo "firejail --private firefox" >> /usr/bin/firefox
 chmod +x /usr/bin/firefox
+
+echo "firejail --private /usr/bin/tor-browser" > /usr/bin/torbrowser
+chmod +x /usr/bin/torbrowser
+
 
 # Terminal, dosya yöneticisi gibi programları izole et
 echo "firejail --private nautilus" >> /usr/bin/nautilus
