@@ -76,7 +76,8 @@ net.ipv6.conf.default.accept_ra=0
 
 
 
----------------------
+-----------------------------
+
 /etc/NetworkManager/conf.d/00-macrandomize.conf
 
 [device]
@@ -86,7 +87,142 @@ wifi.scan-rand-mac-address=yes
 wifi.cloned-mac-address=random
 ethernet.cloned-mac-address=random
 
+-----------------------------------
+
+etc/systemd/system/tor.service.d/override.conf
+
+[Service]
+User=root
+
+-------------------------------
+
+etc/sysctl.d/99-hardening.conf
+
+# Bellek korumaları
+kernel.kptr_restrict=2
+kernel.dmesg_restrict=1
+kernel.randomize_va_space=2
+kernel.nx=1
+
+# Ağ güvenliği
+net.ipv4.conf.all.rp_filter=1
+net.ipv4.conf.all.accept_redirects=0
+net.ipv6.conf.all.accept_redirects=0
+net.ipv4.tcp_syncookies=1
+net.ipv4.conf.all.log_martians=1
+net.ipv4.conf.default.log_martians=1
 
 
+-------------------------
+
+etc/tor/torrc
+
+## SOCKS Proxy
+SocksPort 9050
+
+## DNS traffic routing on tor
+DNSPort 53
+AutomapHostsOnResolve 1
+VirtualAddrNetworkIPv4 10.192.0.0/10
+
+## routing all traffic
+TransPort 9040
+
+## control port 
+ControlPort 9051
+CookieAuthentication 1
 
 
+----------------------------
+
+etc/network/if-up.d
+
+
+#!/bin/bash
+
+## iptables rules clean
+iptables -F
+iptables -t nat -F
+
+## routing traffic tor
+iptables -t nat -A OUTPUT -d 127.0.0.1 -j RETURN
+iptables -t nat -A OUTPUT -m owner --uid-owner debian-tor -j RETURN
+
+## routing all dns request to tor - port 9053 (Tor DNS port)
+iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 9053
+
+## routing all tcp requests to tor (9050 is default SOCKS proxy port for Tor)
+iptables -t nat -A OUTPUT -p tcp --syn -j REDIRECT --to-ports 9050
+
+## access
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+## access
+iptables -A OUTPUT -m owner --uid-owner debian-tor -j ACCEPT
+
+## prevent dns leaks
+iptables -A OUTPUT -p udp --dport 53 -j REJECT
+
+## disable all other traffic
+iptables -A OUTPUT -j REJECT
+
+# testing Tor connection to ensure it's working 
+if curl --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/ | grep -q "Congratulations"; then
+  echo "Tor connection successful!"
+else
+  echo "Tor connection failed."
+fi
+
+
+    ALTERNATİF DAHA GUVENLI TEST EDILMEDI:
+
+
+#!/bin/bash
+
+## iptables rules temizleme
+iptables -F
+iptables -X
+iptables -Z
+iptables -t nat -F
+
+echo "Tüm iptables kuralları temizlendi."
+
+## Yerel loopback'e izin ver
+iptables -t nat -A OUTPUT -d 127.0.0.1 -j RETURN
+iptables -t nat -A OUTPUT -m owner --uid-owner debian-tor -j RETURN
+
+## Tüm DNS isteklerini Tor’un 9053 portuna yönlendir
+iptables -t nat -A OUTPUT -p udp --dport 53 -j REDIRECT --to-ports 9053
+
+## Tüm TCP trafiğini Tor’un 9050 SOCKS portuna yönlendir
+iptables -t nat -A OUTPUT -p tcp --syn -j REDIRECT --to-ports 9050
+
+## İzin verilen bağlantılar
+iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT -m owner --uid-owner debian-tor -j ACCEPT
+
+## DNS sızıntılarını önleme
+iptables -A OUTPUT -p udp --dport 53 -j REJECT
+iptables -A OUTPUT -p udp -j REJECT  # UDP trafiğini tamamen kapat
+
+## Diğer tüm trafiği engelle (Tor hariç)
+iptables -A OUTPUT -j REJECT
+
+echo "iptables kuralları güncellendi."
+
+## Tor bağlantısını test et
+if curl --socks5-hostname 127.0.0.1:9050 https://check.torproject.org/ | grep -q "Congratulations"; then
+  echo "[SUCCESS] Tor bağlantısı başarılı!"
+  logger "[SUCCESS] Tor bağlantısı başarılı!"
+else
+  echo "[ERROR] Tor bağlantısı başarısız!"
+  logger "[ERROR] Tor bağlantısı başarısız!"
+fi
+
+--------------------------------
+
+etc/default/grub
+
+GRUB_CMDLINE_LINUX="lockdown=confidentiality"
+
+----------------------------
