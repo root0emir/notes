@@ -19,6 +19,31 @@
 
 COMMIT
 
+//ALTERNATIF PINGLER TAMAMEN ENGELLENIYOR VE DNS SIZINTISI BAŞTAN ENGELLIYOR
+
+*filter
+:INPUT DROP [0:0]
+:FORWARD DROP [0:0]
+:OUTPUT ACCEPT [0:0]
+
+# Yerel loopback'e izin ver
+-A INPUT -i lo -j ACCEPT
+
+# Önceden kabul edilmiş bağlantılara izin ver
+-A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# SSH bağlantısını belirli IP'ye sınırla
+-A INPUT -p tcp --dport 22 -s 192.168.1.100 -j ACCEPT
+
+# ICMP'yi tamamen kapat (isteğe bağlı)
+-A INPUT -p icmp -j DROP
+
+# DNS Sızıntılarını Engelle
+-A OUTPUT -p udp --dport 53 -j REJECT
+
+COMMIT
+
+
 ---------------
 
 /etc/network/if-pre-up.d/iptables-load
@@ -50,6 +75,20 @@ RemainAfterExit=true
 [Install]
 WantedBy=multi-user.target
 
+///ALTERNATIF DAHA GUVENLI DENENECEK
+
+#!/bin/bash
+MACSEC_KEY=$(cat /etc/macsec.key)  # anahtarı güvenli bir dosyadan oku
+ip link add link eth0 macsec0 type macsec encrypt on
+ip macsec add macsec0 rx sci 12:34:56:78:9A:BC pn 1 on key 01 "$MACSEC_KEY"
+ip link set macsec0 up
+
+/etc/macsec.key
+
+chmod 600 /etc/macsec.key
+chown root:root /etc/macsec.key
+
+
 --------------------------------
 
 
@@ -60,9 +99,11 @@ WantedBy=multi-user.target
 # IP Spoofing Koruması
 net.ipv4.conf.all.rp_filter=1
 net.ipv4.conf.default.rp_filter=1
+net.ipv4.conf.all.send_redirects=0
 
 # SYN Flood Saldırılarını Önleme
 net.ipv4.tcp_syncookies=1
+net.ipv4.tcp_timestamps=0
 
 # ICMP Saldırılarından Korunma
 net.ipv4.icmp_echo_ignore_broadcasts=1
@@ -87,12 +128,23 @@ wifi.scan-rand-mac-address=yes
 wifi.cloned-mac-address=random
 ethernet.cloned-mac-address=random
 
+////ALTERNATIF macchanger paketini package-liste ekleyelim 
+
+echo '@reboot root macchanger -r eth0' >> /etc/crontab
+
+
 -----------------------------------
 
 etc/systemd/system/tor.service.d/override.conf
 
 [Service]
 User=root
+
+veya
+
+[Service]
+User=debian-tor
+
 
 -------------------------------
 
@@ -118,17 +170,21 @@ net.ipv4.conf.default.log_martians=1
 etc/tor/torrc
 
 ## SOCKS Proxy
-SocksPort 9050
+SocksPort 127.0.0.1:9050 IsolateClientAddr IsolateSOCKSAuth
 
-## DNS traffic routing on tor
+## DNS trafiğini Tor üzerinden yönlendir
 DNSPort 53
 AutomapHostsOnResolve 1
 VirtualAddrNetworkIPv4 10.192.0.0/10
 
-## routing all traffic
+## Tüm trafiği Tor üzerinden yönlendir
 TransPort 9040
 
-## control port 
+## Daha fazla anonimlik için
+ExitNodes {fr},{nl},{se}  #  Fransa, Hollanda, İsveç
+StrictNodes 1
+
+## Kontrol port
 ControlPort 9051
 CookieAuthentication 1
 
