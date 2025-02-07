@@ -282,3 +282,38 @@ etc/default/grub
 GRUB_CMDLINE_LINUX="lockdown=confidentiality"
 
 ----------------------------
+1111111111111 KERNEL HARDENİNG 11111111111111111
+
+apt install linux-grsecurity / Package liste ekle
+echo "kernel.dmesg_restrict=1" >> /etc/sysctl.conf
+echo "kernel.kptr_restrict=2" >> /etc/sysctl.conf
+
+
+
+apt install firejail
+firejail --private firefox
+
+
+apt install secure-delete
+sfill -v /  # Disk üzerindeki boş alanı rastgele veriyle doldur
+swapoff -a && sdmem -f -l -v  # RAM’deki tüm verileri temizle
+
+-------------------------
+
+2222222222222 TRACKING ENGELLEME 2222222222222
+
+kamera mikrofon girişi engelleme
+
+echo "blacklist uvcvideo" >> /etc/modprobe.d/blacklist.conf
+echo "blacklist snd_hda_intel" >> /etc/modprobe.d/blacklist.conf
+
+keylogger engelleme
+
+apt install tlog
+tlog-rec-session --log-input=no  # Klavye girişlerini loglama
+
+IP sızıntılarını önleme
+
+echo "media.peerconnection.enabled = false" >> /etc/firefox/prefs.js
+echo "media.peerconnection.enabled = false" >> /etc/chromium/policies/managed/policy.json
+
