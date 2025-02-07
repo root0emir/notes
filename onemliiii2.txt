@@ -1,0 +1,129 @@
+config/
+ ├── hooks/
+ │    ├── 001-fake-info.chroot
+ │    ├── 002-disable-hardware-tracking.chroot
+ │    ├── 003-secure-wipe.chroot
+ │    ├── 004-traffic-obfuscation.chroot
+ │    ├── 005-firejail-sandbox.chroot
+ │    ├── 006-zswap-encryption.chroot
+ ├── includes.chroot/
+ │    ├── etc/
+ │    │    ├── sysctl.d/99-security.conf
+ │    │    ├── modprobe.d/blacklist.conf
+ │    │    ├── default/grub
+ │    │    ├── NetworkManager/conf.d/00-macrandomize.conf
+ │    │    ├── tor/torrc
+ │    │    ├── dnscrypt-proxy/dnscrypt-proxy.toml
+ │    │    ├── cron.daily/
+ │    │    │    ├── secure-delete
+
+
+
+
+
+
+config/hooks/001-fake-info.chroot
+
+#!/bin/bash
+
+# Sahte sistem bilgilerini yerleştir
+echo "Linux AnonOS 6.1.0 #1 SMP" > /etc/issue
+echo "PRETTY_NAME='unkown'" > /etc/os-release
+
+# Çekirdek sürümünü değiştiren uname wrapper'ı
+mv /bin/uname /bin/uname-real
+echo -e '#!/bin/bash\necho "Linux SecureOS 6.2.3 #1 SMP"' > /bin/uname
+chmod +x /bin/uname
+
+# Donanım bilgilerini gizleme
+echo 'BIOS Information: Vendor: SeaBIOS, Version: 1.14.0' > /etc/dmidecode_fake
+alias dmidecode='cat /etc/dmidecode_fake'
+
+# CPU ID sahteleme
+echo 'Intel(R) Core(TM) i7-4770K CPU @ 3.50GHz' > /etc/cpuinfo
+alias lscpu='cat /etc/cpuinfo'
+
+-----------------------
+
+config/hooks/002-disable-hardware-tracking.chroot
+
+#!/bin/bash
+
+# Kamera & Mikrofon devre dışı bırak
+echo "blacklist uvcvideo" >> /etc/modprobe.d/blacklist.conf
+echo "blacklist snd_hda_intel" >> /etc/modprobe.d/blacklist.conf
+
+# MAC adresi her açılışta rastgele değiştir
+apt install -y macchanger
+echo '@reboot root macchanger -r eth0' >> /etc/crontab
+
+# CPU ID sahteleme
+echo '0x0000000000000000' > /etc/cpuid_fake
+alias cpuid='cat /etc/cpuid_fake'
+
+# Tüm disk UUID'lerini rastgele yap
+echo '@reboot root blkid | cut -d " " -f 2 | xargs -I {} tune2fs -U random {}' >> /etc/crontab
+
+-------------------------
+
+config/hooks/003-secure-wipe.chroot
+
+#!/bin/bash
+
+# Swap kapat
+swapoff -a
+echo "swapoff -a" >> /etc/rc.local
+
+# RAM'i temizle (secure-delete ile)
+apt install -y secure-delete
+echo '@reboot root sdmem -f -l -v' >> /etc/crontab
+echo "echo 1 > /proc/sys/vm/drop_caches" >> /etc/rc.local
+
+---------------------------
+
+config/hooks/004-traffic-obfuscation.chroot
+
+#!/bin/bash
+
+# Trafik analizi için rastgele sahte paketler gönder
+echo '@reboot root while true; do ping -c 1 127.0.0.1 >/dev/null 2>&1; sleep $((RANDOM % 10)); done &' >> /etc/crontab
+
+# DNS Flooding (Gerçek trafiği gizle)
+echo '@reboot root while true; do host $(head -c 10 /dev/urandom | md5sum | cut -d " " -f1).com >/dev/null 2>&1; sleep $((RANDOM % 5)); done &' >> /etc/crontab
+
+# OpenVPN'i Tor üzerinden çalıştır (Tor over VPN)
+iptables -t nat -A OUTPUT -p tcp --syn -j REDIRECT --to-ports 9050
+iptables -A OUTPUT -m owner --uid-owner openvpn -j ACCEPT
+iptables -A OUTPUT -j REJECT
+
+-------------------------
+
+config/hooks/005-firejail-sandbox.chroot
+
+#!/bin/bash
+
+apt install -y firejail
+
+# Firefox'u sandbox içinde çalıştır
+echo "firejail --private firefox" >> /usr/bin/firefox
+chmod +x /usr/bin/firefox
+
+# Terminal, dosya yöneticisi gibi programları izole et
+echo "firejail --private nautilus" >> /usr/bin/nautilus
+chmod +x /usr/bin/nautilus
+
+
+---------------------------
+
+config/hooks/006-zswap-encryption.chroot
+
+
+#!/bin/bash
+
+echo "zswap.enabled=1 zswap.compressor=lz4" >> /etc/default/grub
+update-grub
+
+
+---------------------------
+
+
