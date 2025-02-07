@@ -1,0 +1,23 @@
+/etc/ssh/sshd_config
+
+PermitRootLogin no
+PasswordAuthentication no
+PubkeyAuthentication yes
+AllowUsers myuser
+Protocol 2
+MaxAuthTries 3
+MaxSessions 2
+ClientAliveInterval 300
+ClientAliveCountMax 0
+
+
+config/hooks/006-zswap-encryption.chroot
+
+#!/bin/bash
+
+# Kernel hardening için ek güvenlik önlemleri
+echo "zswap.enabled=1 zswap.compressor=lz4 zswap.zpool=z3fold" >> /etc/default/grub
+echo 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 slab_nomerge slub_debug=FZ page_poison=1 pti=on vsyscall=none kptr_restrict=2 dmesg_restrict=1 randomize_va_space=2 l1tf=full,force smep smap"' >> /etc/default/grub
+update-grub
+
+
