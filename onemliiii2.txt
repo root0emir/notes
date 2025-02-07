@@ -19,7 +19,7 @@ config/
 
 
 
-
+------------------
 
 
 config/hooks/001-fake-info.chroot
@@ -63,6 +63,12 @@ alias cpuid='cat /etc/cpuid_fake'
 
 # Tüm disk UUID'lerini rastgele yap
 echo '@reboot root blkid | cut -d " " -f 2 | xargs -I {} tune2fs -U random {}' >> /etc/crontab
+
+# USB Seri Numaralarını sahtele
+echo '@reboot root echo 1234ABCD > /sys/bus/usb/devices/usb1/serial' >> /etc/crontab
+
+# PCI ID'lerini gizle (Sanal donanım olarak göster)
+echo '@reboot root echo 8086 1234 > /sys/bus/pci/devices/0000:00:02.0/vendor' >> /etc/crontab
 
 -------------------------
 
@@ -120,7 +126,8 @@ config/hooks/006-zswap-encryption.chroot
 
 #!/bin/bash
 
-echo "zswap.enabled=1 zswap.compressor=lz4" >> /etc/default/grub
+# Zswap etkinleştir ve şifreleme kullan
+echo "zswap.enabled=1 zswap.compressor=lz4 zswap.zpool=z3fold" >> /etc/default/grub
 update-grub
 
 
