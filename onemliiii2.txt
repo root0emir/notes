@@ -105,18 +105,17 @@ config/hooks/005-firejail-sandbox.chroot
 
 apt install -y firejail
 
+# Firejail'in varsayılan Tor Browser profiliyle başlat
+echo "firejail --noprofile --private --seccomp tor-browser" > /usr/bin/torbrowser
+chmod +x /usr/bin/torbrowser
 
+# Firejail'in varsayılan Firefox profiliyle başlat
 echo "firejail --private firefox" >> /usr/bin/firefox
 chmod +x /usr/bin/firefox
 
-echo "firejail --private /usr/bin/tor-browser" > /usr/bin/torbrowser
-chmod +x /usr/bin/torbrowser
-
-
-# Terminal, dosya yöneticisi gibi programları izole et
+# Terminal ve dosya yöneticisi için de Firejail uygula
 echo "firejail --private nautilus" >> /usr/bin/nautilus
 chmod +x /usr/bin/nautilus
-
 
 ---------------------------
 
